@@ -10,7 +10,14 @@ function loadSelections {
 	then
 		while read LINE
 		do
-			KVP=$(echo "$LINE" | egrep '^#.+=.+$' | sed 's/^#\ *//g' | sed 's/\ *=\ */\t/g')
+			KVP=$(
+				echo "$LINE" |
+				egrep '^.+=.+$' |
+				sed 's/^\ *//g' |
+				sed 's/#.*$//g' |
+				sed 's/^\ *//g' |
+				sed 's/\ *=\ */\t/g'
+			)
 			if [ "$KVP" != "" ]
 			then
 				KEY=$(echo "$KVP" | cut -f1)
@@ -30,10 +37,18 @@ function saveSelections {
 		for KEY in "${!SELECTIONS[@]}"
 		do
 			VALUE="${SELECTIONS[$KEY]}"
-			echo "# $KEY = $VALUE"
+			SCREENNAME=$(removeIndex "${SCREENS[$KEY]}")
+			echo "# $SCREENNAME"
+			echo "$KEY = $VALUE"
 		done
 	) > "$CONFFILE"
 	chmod +x "$CONFFILE"
+}
+
+# Removes digits and whitespace from the start of a string
+function removeIndex {
+	echo "$1" |
+	sed 's/^[0-9]*\ *//g'
 }
 
 # Sets the profile for a display
@@ -41,7 +56,7 @@ function setSelection {
 	local KEY VALUE
 	KEY="$1"
 	VALUE="${SELECTIONS[$KEY]}"
-	echo "[#${SCREENS[$KEY]}]"' <- "'"$(basename "$VALUE")"'"'
+	echo "[$(removeIndex "${SCREENS[$KEY]}")]"' <- "'"$(basename "$VALUE")"'"'
 	dispwin -d $KEY "$VALUE"
 }
 

@@ -1,0 +1,68 @@
+Title: 	icm-config
+
+Description:
+	Script to manage and allow easy selection of ICC/ICM color profiles in
+	addition to automatically producing a startup script that can be used to
+	apply the last chosen profiles on login.
+
+Author:
+	Mark K Cowan, mark@battlesnake.co.uk
+
+Requires:
+	dispwin, whiptail, cut, sed, bash 4+, grep,
+	Color profiles [http://www.tftcentral.co.uk/articles/icc_profiles.htm]
+
+Installation:
+	Symlink or copy the <icm-config> script to /usr/bin
+
+Usage:
+	Color profiles are arranged as follows:
+		/usr/share/icm/<index> <screen name>/<profile>
+
+	The <index> is the dispwin index of the screen <screen name>, which may
+	be obtained via `dispwin -h`.  The <screen name> is also shown here,
+	although any name can be used (e.g. "left screen", "right screen").
+	The script uses the <screen name> and <profile> to build user-friendly
+	menus to allow assignment of profiles to screens.
+
+	The <screen name> may contain spaces, however the profile name MUST NOT
+	contain anything that would need quoting or escaping.
+
+	For example, `ls -d1 /usr/share/icm/*/` on my system results in:
+		/usr/share/icm/1 Dell U2412M/
+		/usr/share/icm/2 Dell U2312HM/
+
+	And `ls -1 "/usr/share/icm/1 Dell U2412M/"` on my system produces:
+		AdobeRGB1998.icc
+		dell_u2412m_standard.icc
+		dell_u2412m_calibrated.icc
+		sRGB Color Space Profile.icm
+
+	The .icc/.icm extensions are optional, the script uses a * wildcard to
+	list profiles.
+
+	The names of the selected profiles and the corresponding monitor
+	indices are stored to ~/.icm-config/selected, which is executable via
+	the icm-config script.  To have your last selections automatically
+	applied at login, simply add this script to your list of on-login
+	commands.
+
+	Syntax for the script:
+		icm-config [{ "auto" | <file> }]
+
+	With no parameters, icm-config brings up a nice whiptail menu to allow
+	selection of monitors and color profiles.  With "auto" as the only
+	parameter, icm-config will re-apply the last selections, which are read
+	from ~/.icm-config/selected.  To have icm-config apply selections from
+	some other file, specify that file as the only parameter to icm-config,
+	for example if I have 3 sets of selections named <calibrated>, <gaming>
+	and <films>:
+		# Run on login, to set some calibrated profiles
+		icm-config ~/.icm-config/calibrated
+		# Run before starting games for a more saturated, brighter profile
+		icm-config ~/.icm-config/gaming
+		# Run before playing films for a cooler, darker profile
+		icm-config ~/.icm-config/films
+
+	The syntax of extra selection files mirrors the syntax of the default
+	selections file.
