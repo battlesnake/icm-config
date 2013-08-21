@@ -59,7 +59,7 @@ Usage:
 	and <films>:
 		# Run on login, to set some calibrated profiles
 		icm-config ~/.icm-config/calibrated
-		# Run before starting games for a more saturated, brighter profile
+		# Run before starting games for a saturated, brighter profile
 		icm-config ~/.icm-config/gaming
 		# Run before playing films for a cooler, darker profile
 		icm-config ~/.icm-config/films
