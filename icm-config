@@ -1,0 +1,212 @@
+#!/bin/bash
+
+################################################################################
+
+# Read selections from file
+function loadSelections {
+	local LINE KEY VALUE CONFFILE
+	CONFFILE="$1"
+	if [ -e "$CONFFILE" ]
+	then
+		while read LINE
+		do
+			KVP=$(echo "$LINE" | egrep '^#.+=.+$' | sed 's/^#\ *//g' | sed 's/\ *=\ */\t/g')
+			if [ "$KVP" != "" ]
+			then
+				KEY=$(echo "$KVP" | cut -f1)
+				VALUE=$(echo "$KVP" | cut -f2)
+				SELECTIONS["$KEY"]="$VALUE"
+			fi
+		done < "$CONFFILE"
+	fi
+}
+
+# Saves selections to file
+function saveSelections {
+	local KEY VALUE CONFFILE
+	CONFFILE="$1"
+	(
+		echo "#!$0"
+		for KEY in "${!SELECTIONS[@]}"
+		do
+			VALUE="${SELECTIONS[$KEY]}"
+			echo "# $KEY = $VALUE"
+		done
+	) > "$CONFFILE"
+	chmod +x "$CONFFILE"
+}
+
+# Sets the profile for a display
+function setSelection {
+	local KEY VALUE
+	KEY="$1"
+	VALUE="${SELECTIONS[$KEY]}"
+	echo "[#${SCREENS[$KEY]}]"' <- "'"$(basename "$VALUE")"'"'
+	dispwin -d $KEY "$VALUE"
+}
+
+# Sets the profiles for each display based on the selections
+function setSelections {
+	local KEY VALUE
+	for KEY in "${!SELECTIONS[@]}"
+	do
+		setSelection "$KEY"
+	done
+}
+
+# Gets the names of the displays (and their dispwin indices)
+function getScreens {
+	SCREENS=()
+	SCREENSMENU=()
+	local FP COUNT=0
+	while read FP
+	do
+		(( COUNT++ ))
+		ITEM=`basename "$FP"`
+		SCREENS[$COUNT]="$ITEM"
+		SCREENSMENU+=( "$COUNT" "$(sed 's/^[0-9\ ]*//g' <<<"$ITEM")" )
+	done < <(ls -d1 /usr/share/icm/*/ | sort -t\  -k 1,1n)
+}
+
+# Asks the user to select a display
+function chooseScreen {
+	local INDEX
+	exec 3>&1
+	read INDEX < <(
+		whiptail \
+			--title "Select monitor" \
+			--ok-button Select \
+			--cancel-button Exit \
+			--menu Monitors 20 64 14 \
+			"${SCREENSMENU[@]}" \
+ 			3>&1 1>&2- 2>&3-
+	)
+	exec 3>&-
+	if [ "$INDEX" == "" ]
+	then
+		exit 0
+	fi
+	SCREEN="${SCREENS[$INDEX]}"
+	SCREENINDEX=$INDEX
+
+}
+
+# Gets the color profiles associated with a display
+function getProfiles {
+	PROFILES=()
+	PROFILESMENU=()
+	local FP COUNT=0
+	while read FP
+	do
+		(( COUNT++ ))
+		ITEM=`basename "$FP"`
+		PROFILES[$COUNT]="$ITEM"
+		PROFILESMENU+=( "$COUNT" "$ITEM" )
+	done < <(ls -1 /usr/share/icm/$SCREEN/*)
+}
+
+# Gets the index of the currently selected profile for the current display
+function getSelectedProfile {
+	local INDEX ITEM
+	DEFAULT=$(basename "${SELECTIONS[$SCREENINDEX]}")
+	if [ "$DEFAULT" != "" ]
+	then
+		INDEX=0
+		for ITEM in "${PROFILES[@]}"
+		do
+			(( INDEX++ ))
+			if [ "$DEFAULT" == "$ITEM" ]
+			then
+				DEFAULTINDEX=$INDEX
+				break
+			fi
+		done
+	fi
+}
+
+# Asks the user to choose a profile
+function chooseProfile {
+	local INDEX
+	exec 3>&1
+	read INDEX < <(
+		whiptail \
+			--title "Select profile"  \
+			--ok-button Select \
+			--cancel-button Exit \
+			--default-item "$DEFAULTINDEX" \
+			--menu Profiles 20 64 14 \
+			"${PROFILESMENU[@]}" \
+			3>&1 1>&2- 2>&3-
+		)
+	exec 3>&-
+	if [ "$INDEX" == "" ]
+	then
+		exit 0
+	fi
+	PROFILE="${PROFILES[$INDEX]}"
+}
+
+################################################################################
+
+OIFS="$IFS"
+IFS="
+"
+trap "IFS=$OIFS" exit
+
+# Create array for selected profiles
+declare -A SELECTIONS
+
+# Default configuration file to use for saving/loading selections
+DEFAULTCONFFILE=~/.icm-config/selected
+
+# Parse parameters
+CONFFILE="$1"
+if [ "$CONFFILE" == "auto" ]
+then
+	RUNCONF=1
+	RUNCONF="$DEFAULTCONFFILE"
+elif [ "$CONFFILE" != "" ]
+then
+	RUNCONF=1
+else
+	RUNCONF=0
+	CONFFILE="$DEFAULTCONFFILE"
+	if [ ! -d ~/.icm-config ]
+	then
+		mkdir ~/.icm-config
+	fi
+fi
+
+loadSelections "$CONFFILE"
+
+getScreens
+
+if [ $RUNCONF == 1 ]
+then
+	setSelections
+	exit 0
+fi
+
+while true
+do
+
+	# Choose screen
+	chooseScreen
+
+	# Get profiles
+	getProfiles
+
+	# Get selected profile, if any
+	getSelectedProfile
+
+	# Choose profile
+	chooseProfile
+
+	# Save selections
+	SELECTIONS[$SCREENINDEX]="/usr/share/icm/$SCREEN/$PROFILE"
+	saveSelections "$CONFFILE"
+
+	# Set profile
+	setSelection $SCREENINDEX
+
+done
