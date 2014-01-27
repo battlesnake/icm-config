@@ -175,16 +175,16 @@ declare -A SELECTIONS
 DEFAULTCONFFILE=~/.icm-config/selected
 
 # Parse parameters
-CONFFILE="$1"
-if [ "$CONFFILE" == "auto" ]
+CONFFILE=$1
+RUNCONF=0
+if [ "$CONFFILE" ]
 then
 	RUNCONF=1
-	RUNCONF="$DEFAULTCONFFILE"
-elif [ "$CONFFILE" != "" ]
-then
-	RUNCONF=1
+	if [ "$CONFFILE" == "auto" ]
+	then
+		CONFFILE="$DEFAULTCONFFILE"
+	fi
 else
-	RUNCONF=0
 	CONFFILE="$DEFAULTCONFFILE"
 	if [ ! -d ~/.icm-config ]
 	then
@@ -196,7 +196,7 @@ loadSelections "$CONFFILE"
 
 getScreens
 
-if [ $RUNCONF == 1 ]
+if (( $RUNCONF ))
 then
 	setSelections
 	exit 0
